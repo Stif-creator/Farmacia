@@ -1,5 +1,4 @@
 /vendor/
-config_correo.php
 config_error.php
 .env
 uploads/

@@ -7,15 +7,24 @@ if (!isset($_SESSION['pendiente_2fa']) || $_SESSION['rol_pendiente'] === 'admin'
     exit;
 }
 
+// Asegurar que exista el código en sesión; si no, redirigir a login
+if (!isset($_SESSION['codigo_2fa_temp'])) {
+    header('Location: login.php');
+    exit;
+}
+
 $errores = [];
 $mensaje = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $codigoIngresado = trim($_POST['codigo'] ?? '');
-    if (empty($codigoIngresado)) {
+    // Tomar código exactamente como se envía desde el formulario
+    $codigoIngresado = trim($_POST['codigo']);
+    if ($codigoIngresado === '') {
         $errores[] = 'Ingresa el código de verificación.';
     } elseif (!isset($_SESSION['codigo_2fa_expira']) || time() > $_SESSION['codigo_2fa_expira']) {
         $errores[] = 'El código ha expirado. Solicita uno nuevo.';
+    } elseif (!isset($_SESSION['codigo_2fa_temp'])) {
+        $errores[] = 'No hay código en sesión. Vuelve a solicitar uno.';
     } elseif ($codigoIngresado === $_SESSION['codigo_2fa_temp']) {
         $_SESSION['id_usuario'] = $_SESSION['id_pendiente'];
         $_SESSION['usuario'] = $_SESSION['nombre_pendiente'];
@@ -43,6 +52,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 include 'header.php';
 ?>
+<?php if (isset($_SESSION['codigo_2fa_temp'])): ?>
+<!-- Código en sesión: <?= htmlspecialchars($_SESSION['codigo_2fa_temp']) ?> -->
+<?php endif; ?>
 <div class="row justify-content-center">
     <div class="col-lg-6">
         <div class="card shadow-sm p-4 auth-card text-center">

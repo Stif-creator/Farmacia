@@ -32,10 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $usuario = $resultado->fetch_assoc();
 
             if ($usuario && password_verify($contrasena, $usuario['contrasena'])) {
-                $codigo = (string) random_int(100000, 999999);
-                $update = $conexion->prepare('UPDATE usuarios SET codigo_2fa = ? WHERE id_usuario = ?');
-                $update->bind_param('si', $codigo, $usuario['id_usuario']);
-                $update->execute();
+                // Generar código 2FA y guardarlo en sesión exactamente como string
+                $codigo = strval(rand(100000, 999999));
 
                 $_SESSION['pendiente_2fa'] = true;
                 $_SESSION['id_pendiente'] = $usuario['id_usuario'];
@@ -45,6 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['codigo_2fa_temp'] = $codigo;
                 $_SESSION['codigo_2fa_expira'] = time() + 300;
 
+                // (Opcional) actualizar la columna en la tabla usuarios para referencia
+                $update = $conexion->prepare('UPDATE usuarios SET codigo_2fa = ? WHERE id_usuario = ?');
+                $update->bind_param('si', $codigo, $usuario['id_usuario']);
+                $update->execute();
+
+                // Enviar exactamente el código generado
                 if (!enviarCodigo2FA($usuario['correo'], $usuario['nombre'], $codigo)) {
                     $errores[] = 'No se pudo enviar el código. Revisa la configuración SMTP.';
                 } else {

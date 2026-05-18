@@ -8,7 +8,8 @@ if (!isset($_SESSION['pendiente_2fa']) || $_SESSION['rol_pendiente'] === 'admin'
     exit;
 }
 
-$codigo = (string) random_int(100000, 999999);
+$codigo = strval(rand(100000, 999999));
+// Solo generar y actualizar código cuando el usuario solicita reenviar
 $_SESSION['codigo_2fa_temp'] = $codigo;
 $_SESSION['codigo_2fa_expira'] = time() + 300;
 $correoDestino = $_SESSION['correo_pendiente'] ?? '';
