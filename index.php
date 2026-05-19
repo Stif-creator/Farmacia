@@ -5,9 +5,24 @@ require_once 'conexion.php';
 $categoriaSeleccionada = isset($_GET['categoria']) ? intval($_GET['categoria']) : 0;
 $marcaSeleccionada = isset($_GET['marca']) ? intval($_GET['marca']) : 0;
 $busqueda = trim($_GET['q'] ?? '');
-$condiciones = ["p.estado = 'activo'"];
+$esAdmin = isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin';
+$estadoSeleccionado = $_GET['estado'] ?? 'todos';
+if (!in_array($estadoSeleccionado, ['todos', 'activo', 'inactivo'], true)) {
+    $estadoSeleccionado = 'todos';
+}
+$condiciones = [];
 $tipos = '';
 $valores = [];
+
+if ($esAdmin) {
+    if ($estadoSeleccionado !== 'todos') {
+        $condiciones[] = 'p.estado = ?';
+        $tipos .= 's';
+        $valores[] = $estadoSeleccionado;
+    }
+} else {
+    $condiciones[] = "p.estado = 'activo'";
+}
 
 if ($categoriaSeleccionada > 0) {
     $condiciones[] = 'p.id_categoria = ?';
@@ -52,8 +67,10 @@ $consulta->execute();
 $resultado = $consulta->get_result();
 $totalProductos = $resultado->num_rows;
 
-$categorias = $conexion->query('SELECT * FROM categorias ORDER BY nombre_categoria ASC')->fetch_all(MYSQLI_ASSOC);
-$marcas = $conexion->query('SELECT * FROM marcas ORDER BY nombre_marca ASC')->fetch_all(MYSQLI_ASSOC);
+$categoriasSql = $esAdmin ? 'SELECT * FROM categorias ORDER BY nombre_categoria ASC' : "SELECT * FROM categorias WHERE estado = 'activo' ORDER BY nombre_categoria ASC";
+$marcasSql = $esAdmin ? 'SELECT * FROM marcas ORDER BY nombre_marca ASC' : "SELECT * FROM marcas WHERE estado = 'activo' ORDER BY nombre_marca ASC";
+$categorias = $conexion->query($categoriasSql)->fetch_all(MYSQLI_ASSOC);
+$marcas = $conexion->query($marcasSql)->fetch_all(MYSQLI_ASSOC);
 
 include 'header.php';
 ?>
@@ -74,9 +91,11 @@ include 'header.php';
         <div class="card card-categoria p-4 h-100">
             <h3 class="h5">Busca productos</h3>
             <form method="get" action="index.php">
-                <div class="mb-3 position-relative">
-                    <input type="text" id="buscadorProductos" class="form-control" name="q" autocomplete="off" placeholder="Busca por producto, marca, categoría o proveedor" value="<?= htmlspecialchars($busqueda) ?>">
-                    <div id="sugerenciasProductos" class="search-dropdown d-none"></div>
+                <?php if ($esAdmin): ?>
+                    <input type="hidden" name="estado" value="<?= htmlspecialchars($estadoSeleccionado) ?>">
+                <?php endif; ?>
+                <div class="mb-3">
+                    <input type="text" id="buscadorProductos" class="form-control" name="q" autocomplete="off" placeholder="Busca productos, marcas, categorías o proveedores" value="<?= htmlspecialchars($busqueda) ?>">
                 </div>
                 <div class="mb-3">
                     <select class="form-select" name="categoria">
@@ -101,21 +120,21 @@ include 'header.php';
     <div class="col-lg-8">
         <div class="row g-4">
             <div class="col-md-4">
-                <div class="card card-dashboard p-4 text-center bg-white">
+                <div class="card card-dashboard feature-card benefit-card p-4 text-center">
                     <div class="mb-3 icono">✓</div>
                     <h5 class="mb-2">Entrega rápida</h5>
                     <p class="mb-0 texto-pequeno">Recibe tu pedido con total seguridad en pocos días.</p>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card card-dashboard p-4 text-center bg-white">
+                <div class="card card-dashboard feature-card benefit-card p-4 text-center">
                     <div class="mb-3 icono">🌿</div>
                     <h5 class="mb-2">Productos confiables</h5>
                     <p class="mb-0 texto-pequeno">Medicamentos y cuidado personal seleccionados por expertos.</p>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="card card-dashboard p-4 text-center bg-white">
+                <div class="card card-dashboard feature-card benefit-card p-4 text-center">
                     <div class="mb-3 icono">🛍️</div>
                     <h5 class="mb-2">Compra segura</h5>
                     <p class="mb-0 texto-pequeno">Tu carrito y datos protegidos con buenas prácticas web.</p>
@@ -141,6 +160,14 @@ include 'header.php';
                     <a href="#" data-categoria="<?= $cat['id_categoria'] ?>" class="categoria-filtro badge <?= $categoriaSeleccionada === intval($cat['id_categoria']) ? 'bg-primary text-white' : 'bg-light text-dark' ?>"><?= htmlspecialchars($cat['nombre_categoria']) ?></a>
                 <?php endforeach; ?>
             </div>
+            <?php if ($esAdmin): ?>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-light text-dark">Estado:</span>
+                    <a href="#" data-estado="todos" class="estado-filtro badge <?= $estadoSeleccionado === 'todos' ? 'bg-primary text-white' : 'bg-light text-dark' ?>">Todos</a>
+                    <a href="#" data-estado="activo" class="estado-filtro badge <?= $estadoSeleccionado === 'activo' ? 'bg-primary text-white' : 'bg-light text-dark' ?>">Activos</a>
+                    <a href="#" data-estado="inactivo" class="estado-filtro badge <?= $estadoSeleccionado === 'inactivo' ? 'bg-primary text-white' : 'bg-light text-dark' ?>">Inactivos</a>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -183,11 +210,17 @@ include 'header.php';
                             <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'cliente'): ?>
                                 <a href="agregar_carrito.php?id=<?= $producto['id_producto'] ?>" class="btn btn-farmacia"><i class="bi bi-cart-plus me-1"></i>Agregar al carrito</a>
                                 <a href="agregar_favorito.php?id=<?= $producto['id_producto'] ?>" class="btn btn-outline-farmacia"><i class="bi bi-heart me-1"></i>Favorito</a>
+                            <?php elseif (!isset($_SESSION['rol'])): ?>
+                                <a href="login.php?login_required=1" class="btn btn-farmacia"><i class="bi bi-cart-plus me-1"></i>Inicia sesión para comprar</a>
                             <?php endif; ?>
                             <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin'): ?>
                                 <div class="d-flex gap-2">
                                     <a href="editar_producto.php?id=<?= $producto['id_producto'] ?>" class="btn btn-sm btn-secondary flex-fill"><i class="bi bi-pencil me-1"></i>Editar</a>
-                                    <a href="eliminar_producto.php?id=<?= $producto['id_producto'] ?>" class="btn btn-sm btn-danger flex-fill" onclick="return confirm('Deseas eliminar este producto?');"><i class="bi bi-trash me-1"></i>Eliminar</a>
+                                    <?php if ($producto['estado'] === 'activo'): ?>
+                                        <a href="eliminar_producto.php?id=<?= $producto['id_producto'] ?>" class="btn btn-sm btn-danger flex-fill" onclick="return confirm('Desactivar este producto?');"><i class="bi bi-toggle-off me-1"></i>Desactivar</a>
+                                    <?php else: ?>
+                                        <a href="activar_producto.php?id=<?= $producto['id_producto'] ?>" class="btn btn-sm btn-success flex-fill"><i class="bi bi-toggle-on me-1"></i>Activar</a>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -199,20 +232,14 @@ include 'header.php';
 </section>
 <script>
     const buscador = document.querySelector('#buscadorProductos');
-    const sugerencias = document.querySelector('#sugerenciasProductos');
     const contenedorProductos = document.querySelector('#productosContenedor');
     const loaderProductos = document.querySelector('#productosLoader');
     const totalProductosLabel = document.querySelector('#totalProductos');
     const filtrosCategoria = document.querySelectorAll('.categoria-filtro');
+    const filtrosEstado = document.querySelectorAll('.estado-filtro');
     let debounceTimer = null;
     let categoriaSeleccionadaAjax = <?= intval($categoriaSeleccionada) ?>;
-
-    function cerrarSugerencias() {
-        if (sugerencias) {
-            sugerencias.classList.add('d-none');
-            sugerencias.innerHTML = '';
-        }
-    }
+    let estadoSeleccionadoAjax = '<?= htmlspecialchars($estadoSeleccionado, ENT_QUOTES, 'UTF-8') ?>';
 
     function mostrarLoaderProductos(show) {
         if (!loaderProductos) return;
@@ -223,10 +250,9 @@ include 'header.php';
         categoriaSeleccionadaAjax = categoria;
         if (!contenedorProductos) return;
         mostrarLoaderProductos(true);
-        cerrarSugerencias();
         try {
             const term = buscador.value.trim();
-            const params = new URLSearchParams({ categoria });
+            const params = new URLSearchParams({ categoria, estado: estadoSeleccionadoAjax });
             if (term.length >= 2) {
                 params.set('q', term);
             }
@@ -245,6 +271,13 @@ include 'header.php';
                 el.classList.toggle('bg-light', String(cat) !== String(categoria));
                 el.classList.toggle('text-dark', String(cat) !== String(categoria));
             });
+            document.querySelectorAll('.estado-filtro').forEach(el => {
+                const estado = el.dataset.estado;
+                el.classList.toggle('bg-primary', String(estado) === String(estadoSeleccionadoAjax));
+                el.classList.toggle('text-white', String(estado) === String(estadoSeleccionadoAjax));
+                el.classList.toggle('bg-light', String(estado) !== String(estadoSeleccionadoAjax));
+                el.classList.toggle('text-dark', String(estado) !== String(estadoSeleccionadoAjax));
+            });
         } catch (error) {
             contenedorProductos.innerHTML = '<div class="col-12"><div class="alert alert-danger">No se pudieron cargar los productos. Intenta nuevamente.</div></div>';
         } finally {
@@ -252,44 +285,12 @@ include 'header.php';
         }
     }
 
-    if (buscador && sugerencias) {
+    if (buscador) {
         buscador.addEventListener('input', () => {
-            const valor = buscador.value.trim();
             clearTimeout(debounceTimer);
-            if (valor.length < 2) {
-                cerrarSugerencias();
-                return;
-            }
-            debounceTimer = setTimeout(async () => {
-                try {
-                    const respuesta = await fetch('buscar_productos_ajax.php?q=' + encodeURIComponent(valor));
-                    if (!respuesta.ok) throw new Error('Error al buscar');
-                    const resultados = await respuesta.json();
-                    if (!Array.isArray(resultados) || resultados.length === 0) {
-                        sugerencias.innerHTML = '<div class="p-3 text-muted">No se encontraron productos.</div>';
-                        sugerencias.classList.remove('d-none');
-                        return;
-                    }
-                    sugerencias.innerHTML = resultados.map(item => `
-                        <a href="detalle_producto.php?id=${item.id}" class="d-flex align-items-center gap-3 suggestion-item text-decoration-none text-dark p-3">
-                            <img src="${item.imagen}" alt="${item.nombre}" class="suggestion-thumb rounded-3">
-                            <div>
-                                <div class="fw-semibold">${item.nombre}</div>
-                                <div class="small text-muted">$${item.precio}</div>
-                            </div>
-                        </a>
-                    `).join('');
-                    sugerencias.classList.remove('d-none');
-                } catch (error) {
-                    cerrarSugerencias();
-                }
-            }, 300);
-        });
-
-        document.addEventListener('click', (event) => {
-            if (!event.target.closest('#sugerenciasProductos') && event.target !== buscador) {
-                cerrarSugerencias();
-            }
+            debounceTimer = setTimeout(() => {
+                filtrarProductos(categoriaSeleccionadaAjax);
+            }, 250);
         });
     }
 
@@ -298,6 +299,16 @@ include 'header.php';
             event.preventDefault();
             const categoria = element.dataset.categoria || '0';
             filtrarProductos(categoria);
+        });
+    });
+
+    filtrosEstado.forEach((element) => {
+        element.addEventListener('click', (event) => {
+            event.preventDefault();
+            estadoSeleccionadoAjax = element.dataset.estado || 'todos';
+            const estadoInput = document.querySelector('input[name="estado"]');
+            if (estadoInput) estadoInput.value = estadoSeleccionadoAjax;
+            filtrarProductos(categoriaSeleccionadaAjax);
         });
     });
 </script>

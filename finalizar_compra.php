@@ -18,7 +18,7 @@ if (!$carritoActivo) {
 
 $idCarrito = $carritoActivo['id_carrito'];
 $consulta = $conexion->prepare(
-    'SELECT dc.id_producto, dc.cantidad, p.precio AS precio_actual, p.stock FROM detalle_carrito dc '
+    'SELECT dc.id_producto, dc.cantidad, p.precio AS precio_actual, p.stock, p.estado AS estado_producto FROM detalle_carrito dc '
     . 'JOIN productos p ON dc.id_producto = p.id_producto '
     . 'WHERE dc.id_carrito = ? FOR UPDATE'
 );
@@ -31,7 +31,7 @@ $productos = [];
 $total = 0.0;
 while ($producto = $resultado->fetch_assoc()) {
     $cantidad = intval($producto['cantidad']);
-    if ($cantidad <= 0 || $cantidad > intval($producto['stock'])) {
+    if ($cantidad <= 0 || $cantidad > intval($producto['stock']) || $producto['estado_producto'] !== 'activo') {
         $conexion->rollback();
         header('Location: carrito.php');
         exit;
@@ -50,7 +50,7 @@ if (empty($productos)) {
 }
 
 $insertVenta = $conexion->prepare('INSERT INTO ventas (id_usuario, total, estado_venta, fecha) VALUES (?, ?, ?, ?)');
-$estadoVenta = 'Completada';
+$estadoVenta = 'pendiente';
 $fecha = date('Y-m-d H:i:s');
 $insertVenta->bind_param('idss', $idUsuario, $total, $estadoVenta, $fecha);
 $insertVenta->execute();
@@ -73,5 +73,5 @@ $updateCarrito->execute();
 
 $conexion->commit();
 unset($_SESSION['carrito']);
-header('Location: mis_compras.php');
+header('Location: mis_compras.php?toast=compra_realizada');
 exit;

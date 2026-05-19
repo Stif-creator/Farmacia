@@ -4,7 +4,7 @@ soloCliente();
 require_once 'conexion.php';
 
 $idUsuario = $_SESSION['id_usuario'];
-$query = $conexion->prepare('SELECT f.id_favorito, p.* FROM favoritos f JOIN productos p ON f.id_producto = p.id_producto WHERE f.id_usuario = ?');
+$query = $conexion->prepare("SELECT f.id_favorito, p.* FROM favoritos f JOIN productos p ON f.id_producto = p.id_producto WHERE f.id_usuario = ? AND p.estado = 'activo'");
 $query->bind_param('i', $idUsuario);
 $query->execute();
 $resultado = $query->get_result();

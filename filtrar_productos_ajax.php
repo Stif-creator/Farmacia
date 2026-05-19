@@ -5,10 +5,25 @@ header('Content-Type: application/json; charset=utf-8');
 
 $categoria = intval($_GET['categoria'] ?? 0);
 $consulta = trim($_GET['q'] ?? '');
+$esAdmin = isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin';
+$estadoFiltro = $_GET['estado'] ?? 'todos';
+if (!in_array($estadoFiltro, ['todos', 'activo', 'inactivo'], true)) {
+    $estadoFiltro = 'todos';
+}
 
-$condiciones = ["p.estado = 'activo'"];
+$condiciones = [];
 $parametros = [];
 $tipos = '';
+
+if ($esAdmin) {
+    if ($estadoFiltro !== 'todos') {
+        $condiciones[] = 'p.estado = ?';
+        $parametros[] = $estadoFiltro;
+        $tipos .= 's';
+    }
+} else {
+    $condiciones[] = "p.estado = 'activo'";
+}
 
 if ($categoria > 0) {
     $condiciones[] = 'p.id_categoria = ?';
@@ -31,9 +46,11 @@ $sql = "SELECT p.*, COALESCE(c.nombre_categoria, '') AS nombre_categoria, COALES
     FROM productos p
     LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
     LEFT JOIN marcas m ON p.id_marca = m.id_marca
-    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id_proveedor
-    WHERE " . implode(' AND ', $condiciones) . "
-    ORDER BY p.nombre ASC";
+    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id_proveedor";
+if (!empty($condiciones)) {
+    $sql .= ' WHERE ' . implode(' AND ', $condiciones);
+}
+$sql .= ' ORDER BY p.nombre ASC';
 
 $stmt = $conexion->prepare($sql);
 if ($stmt === false) {
@@ -82,12 +99,19 @@ if ($total === 0) {
         if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'cliente') {
             $html .= '<a href="agregar_carrito.php?id=' . intval($producto['id_producto']) . '" class="btn btn-farmacia"><i class="bi bi-cart-plus me-1"></i>Agregar al carrito</a>'
                 . '<a href="agregar_favorito.php?id=' . intval($producto['id_producto']) . '" class="btn btn-outline-farmacia"><i class="bi bi-heart me-1"></i>Favorito</a>';
+        } elseif (!isset($_SESSION['rol'])) {
+            $html .= '<a href="login.php?login_required=1" class="btn btn-farmacia"><i class="bi bi-cart-plus me-1"></i>Inicia sesion para comprar</a>';
         }
         if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin') {
+            $idProducto = intval($producto['id_producto']);
             $html .= '<div class="d-flex gap-2">'
-                . '<a href="editar_producto.php?id=' . intval($producto['id_producto']) . '" class="btn btn-sm btn-secondary flex-fill"><i class="bi bi-pencil me-1"></i>Editar</a>'
-                . '<a href="eliminar_producto.php?id=' . intval($producto['id_producto']) . '" class="btn btn-sm btn-danger flex-fill" onclick="return confirm(\'Deseas eliminar este producto?\');"><i class="bi bi-trash me-1"></i>Eliminar</a>'
-                . '</div>';
+                . '<a href="editar_producto.php?id=' . $idProducto . '" class="btn btn-sm btn-secondary flex-fill"><i class="bi bi-pencil me-1"></i>Editar</a>';
+            if ($producto['estado'] === 'activo') {
+                $html .= '<a href="eliminar_producto.php?id=' . $idProducto . '" class="btn btn-sm btn-danger flex-fill" onclick="return confirm(\'Desactivar este producto?\');"><i class="bi bi-toggle-off me-1"></i>Desactivar</a>';
+            } else {
+                $html .= '<a href="activar_producto.php?id=' . $idProducto . '" class="btn btn-sm btn-success flex-fill"><i class="bi bi-toggle-on me-1"></i>Activar</a>';
+            }
+            $html .= '</div>';
         }
         $html .= '</div></div></div></div>';
     }

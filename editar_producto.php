@@ -20,16 +20,44 @@ if (!$producto) {
     exit;
 }
 
-$categorias = $conexion->query('SELECT * FROM categorias ORDER BY nombre_categoria ASC')->fetch_all(MYSQLI_ASSOC);
-$marcas = $conexion->query('SELECT * FROM marcas ORDER BY nombre_marca ASC')->fetch_all(MYSQLI_ASSOC);
-$proveedores = $conexion->query('SELECT * FROM proveedores ORDER BY nombre ASC')->fetch_all(MYSQLI_ASSOC);
+$categoriasQuery = $conexion->prepare("SELECT * FROM categorias WHERE estado = 'activo' OR id_categoria = ? ORDER BY nombre_categoria ASC");
+$categoriasQuery->bind_param('i', $producto['id_categoria']);
+$categoriasQuery->execute();
+$categorias = $categoriasQuery->get_result()->fetch_all(MYSQLI_ASSOC);
+
+$marcasQuery = $conexion->prepare("SELECT * FROM marcas WHERE estado = 'activo' OR id_marca = ? ORDER BY nombre_marca ASC");
+$marcasQuery->bind_param('i', $producto['id_marca']);
+$marcasQuery->execute();
+$marcas = $marcasQuery->get_result()->fetch_all(MYSQLI_ASSOC);
+
+$proveedoresQuery = $conexion->prepare("SELECT * FROM proveedores WHERE estado = 'activo' OR id_proveedor = ? ORDER BY nombre ASC");
+$proveedoresQuery->bind_param('i', $producto['id_proveedor']);
+$proveedoresQuery->execute();
+$proveedores = $proveedoresQuery->get_result()->fetch_all(MYSQLI_ASSOC);
+
+$imagenesProducto = [];
+if (!empty($producto['imagen'])) {
+    $imagenesProducto[] = $producto['imagen'];
+}
+$imagenesQuery = $conexion->prepare('SELECT ruta FROM producto_imagenes WHERE id_producto = ? ORDER BY orden ASC, id_imagen ASC');
+$imagenesQuery->bind_param('i', $id);
+$imagenesQuery->execute();
+$imagenesResultado = $imagenesQuery->get_result();
+while ($imagenFila = $imagenesResultado->fetch_assoc()) {
+    if (!in_array($imagenFila['ruta'], $imagenesProducto, true)) {
+        $imagenesProducto[] = $imagenFila['ruta'];
+    }
+}
+if (empty($imagenesProducto)) {
+    $imagenesProducto[] = 'https://placehold.co/600x400/16a34a/ffffff?text=Producto+Farmacia';
+}
 include 'header.php';
 ?>
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="card p-4 shadow-sm auth-card">
             <h3 class="mb-3">Editar producto</h3>
-            <form action="actualizar_producto.php" method="post" enctype="multipart/form-data">
+            <form id="productoForm" action="actualizar_producto.php" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="id_producto" value="<?= $producto['id_producto'] ?>">
                 <div class="row gy-3">
                     <div class="col-md-6 input-icon">
@@ -42,7 +70,8 @@ include 'header.php';
                         <i class="bi bi-list-ul"></i>
                         <select name="categoria" class="form-select" required>
                             <?php foreach ($categorias as $categoria): ?>
-                                <option value="<?= $categoria['id_categoria'] ?>" <?= $categoria['id_categoria'] == $producto['id_categoria'] ? 'selected' : '' ?>><?= htmlspecialchars($categoria['nombre_categoria']) ?></option>
+                                <?php $categoriaInactiva = ($categoria['estado'] ?? 'activo') === 'inactivo'; ?>
+                                <option value="<?= $categoria['id_categoria'] ?>" <?= $categoria['id_categoria'] == $producto['id_categoria'] ? 'selected' : '' ?>><?= htmlspecialchars($categoria['nombre_categoria'] . ($categoriaInactiva ? ' (inactiva)' : '')) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -52,7 +81,8 @@ include 'header.php';
                         <select name="marca" class="form-select" required>
                             <option value="">Selecciona una marca</option>
                             <?php foreach ($marcas as $marca): ?>
-                                <option value="<?= $marca['id_marca'] ?>" <?= $marca['id_marca'] == $producto['id_marca'] ? 'selected' : '' ?>><?= htmlspecialchars($marca['nombre_marca']) ?></option>
+                                <?php $marcaInactiva = ($marca['estado'] ?? 'activo') === 'inactivo'; ?>
+                                <option value="<?= $marca['id_marca'] ?>" <?= $marca['id_marca'] == $producto['id_marca'] ? 'selected' : '' ?>><?= htmlspecialchars($marca['nombre_marca'] . ($marcaInactiva ? ' (inactiva)' : '')) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -62,7 +92,8 @@ include 'header.php';
                         <select name="proveedor" class="form-select" required>
                             <option value="">Selecciona un proveedor</option>
                             <?php foreach ($proveedores as $proveedor): ?>
-                                <option value="<?= $proveedor['id_proveedor'] ?>" <?= $proveedor['id_proveedor'] == $producto['id_proveedor'] ? 'selected' : '' ?>><?= htmlspecialchars($proveedor['nombre']) ?></option>
+                                <?php $proveedorInactivo = ($proveedor['estado'] ?? 'activo') === 'inactivo'; ?>
+                                <option value="<?= $proveedor['id_proveedor'] ?>" <?= $proveedor['id_proveedor'] == $producto['id_proveedor'] ? 'selected' : '' ?>><?= htmlspecialchars($proveedor['nombre'] . ($proveedorInactivo ? ' (inactivo)' : '')) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -90,16 +121,26 @@ include 'header.php';
                         <textarea name="descripcion" class="form-control" rows="5" required><?= htmlspecialchars($producto['descripcion']) ?></textarea>
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Imagen actual</label>
-                        <div class="mb-3">
-                            <img src="<?= htmlspecialchars($producto['imagen'] ?: 'https://placehold.co/600x400/16a34a/ffffff?text=Producto+Farmacia') ?>" alt="Imagen" class="img-fluid rounded-3" style="max-height:200px;">
+                        <label class="form-label">Imagenes actuales</label>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <?php foreach ($imagenesProducto as $imagenActual): ?>
+                                <?php $esPlaceholder = strpos($imagenActual, 'https://placehold.co/') === 0; ?>
+                                <div class="producto-thumb-item">
+                                    <img src="<?= htmlspecialchars($imagenActual) ?>" alt="Imagen del producto" class="img-fluid rounded-3 producto-thumb-admin">
+                                    <?php if (!$esPlaceholder): ?>
+                                        <button type="button" class="producto-thumb-delete" data-delete-image="<?= htmlspecialchars($imagenActual, ENT_QUOTES, 'UTF-8') ?>" aria-label="Quitar imagen">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
-                        <label class="form-label">Cambiar imagen</label>
+                        <label class="form-label">Agregar imagenes</label>
                         <div class="input-icon">
                             <i class="bi bi-image"></i>
-                            <input type="file" name="imagen" class="form-control">
+                            <input type="file" name="imagenes[]" class="form-control" accept="image/*" multiple>
                         </div>
-                        <div class="form-text">Dejar en blanco para mantener la imagen actual.</div>
+                        <div class="form-text">Puedes seleccionar varias imagenes nuevas. La primera nueva sera la portada.</div>
                     </div>
                 </div>
                 <div class="mt-4 d-flex gap-2">
@@ -110,4 +151,23 @@ include 'header.php';
         </div>
     </div>
 </div>
+<script>
+    (function () {
+        const form = document.getElementById('productoForm');
+        if (!form) return;
+
+        document.querySelectorAll('[data-delete-image]').forEach((button) => {
+            button.addEventListener('click', () => {
+                if (!confirm('Quitar esta imagen del producto?')) return;
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'eliminar_imagenes[]';
+                input.value = button.dataset.deleteImage;
+                form.appendChild(input);
+                const item = button.closest('.producto-thumb-item');
+                if (item) item.remove();
+            });
+        });
+    })();
+</script>
 <?php include 'footer.php';

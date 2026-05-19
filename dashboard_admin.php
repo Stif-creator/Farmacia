@@ -3,6 +3,8 @@ require_once 'auth.php';
 soloAdmin();
 require_once 'conexion.php';
 
+actualizarEstadosVentas($conexion);
+
 $totalVendido = $conexion->query("SELECT COALESCE(SUM(total), 0) AS total FROM ventas")->fetch_assoc()['total'];
 $cantidadVentas = $conexion->query("SELECT COUNT(*) AS total FROM ventas")->fetch_assoc()['total'];
 $usuariosRegistrados = $conexion->query("SELECT COUNT(*) AS total FROM usuarios")->fetch_assoc()['total'];
@@ -12,6 +14,8 @@ $categoriasRegistradas = $conexion->query("SELECT COUNT(*) AS total FROM categor
 $marcasRegistradas = $conexion->query("SELECT COUNT(*) AS total FROM marcas")->fetch_assoc()['total'];
 $proveedoresRegistrados = $conexion->query("SELECT COUNT(*) AS total FROM proveedores")->fetch_assoc()['total'];
 $carritosActivos = $conexion->query("SELECT COUNT(*) AS total FROM carrito WHERE estado = 'activo'")->fetch_assoc()['total'];
+$topProductos = $conexion->query("SELECT p.nombre, SUM(dv.cantidad) AS total_vendido FROM detalle_venta dv JOIN productos p ON dv.id_producto = p.id_producto GROUP BY dv.id_producto ORDER BY total_vendido DESC LIMIT 5")->fetch_all(MYSQLI_ASSOC);
+$productosBajoStock = $conexion->query("SELECT nombre, stock FROM productos WHERE stock <= 5 ORDER BY stock ASC LIMIT 5")->fetch_all(MYSQLI_ASSOC);
 
 include 'header.php';
 ?>
@@ -68,6 +72,42 @@ include 'header.php';
         <div class="card card-dashboard p-4">
             <h5>Categorías</h5>
             <p class="display-6 fw-bold"><?= intval($categoriasRegistradas) ?></p>
+        </div>
+    </div>
+</div>
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card p-4 shadow-sm h-100">
+            <h3>Top 5 productos más vendidos</h3>
+            <?php if (empty($topProductos)): ?>
+                <p class="text-secondary mt-3">Aún no hay ventas suficientes para mostrar los más vendidos.</p>
+            <?php else: ?>
+                <ul class="list-group list-group-flush mt-3">
+                    <?php foreach ($topProductos as $producto): ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-0 px-0 py-3">
+                            <span><?= htmlspecialchars($producto['nombre']) ?></span>
+                            <span class="badge bg-primary rounded-pill"><?= intval($producto['total_vendido']) ?> vendidos</span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card p-4 shadow-sm h-100">
+            <h3>Productos con bajo stock</h3>
+            <?php if (empty($productosBajoStock)): ?>
+                <p class="text-secondary mt-3">No hay productos con stock bajo por el momento.</p>
+            <?php else: ?>
+                <ul class="list-group list-group-flush mt-3">
+                    <?php foreach ($productosBajoStock as $producto): ?>
+                        <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent border-0 px-0 py-3">
+                            <span><?= htmlspecialchars($producto['nombre']) ?></span>
+                            <span class="badge bg-warning text-dark rounded-pill"><?= intval($producto['stock']) ?> unidades</span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
         </div>
     </div>
 </div>

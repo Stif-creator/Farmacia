@@ -6,6 +6,7 @@ require_once 'conexion.php';
 $idUsuario = $_SESSION['id_usuario'];
 $productos = [];
 $total = 0.0;
+$hayProductosNoDisponibles = false;
 
 $consultaCarrito = $conexion->prepare('SELECT id_carrito FROM carrito WHERE id_usuario = ? AND estado = ? LIMIT 1');
 $estadoActivo = 'activo';
@@ -17,7 +18,7 @@ $carritoActivo = $resultadoCarrito->fetch_assoc();
 if ($carritoActivo) {
     $idCarrito = $carritoActivo['id_carrito'];
     $consulta = $conexion->prepare(
-        'SELECT dc.id_producto, dc.cantidad, p.nombre, p.marca, p.imagen, p.precio AS precio_actual, p.stock, c.nombre_categoria, m.nombre_marca AS nombre_marca, pr.nombre AS nombre_proveedor '
+        'SELECT dc.id_producto, dc.cantidad, p.nombre, p.marca, p.imagen, p.precio AS precio_actual, p.stock, p.estado AS estado_producto, c.nombre_categoria, m.nombre_marca AS nombre_marca, pr.nombre AS nombre_proveedor '
         . 'FROM detalle_carrito dc '
         . 'JOIN productos p ON dc.id_producto = p.id_producto '
         . 'LEFT JOIN categorias c ON p.id_categoria = c.id_categoria '
@@ -33,6 +34,9 @@ if ($carritoActivo) {
         $precioActual = floatval($producto['precio_actual'] ?? $producto['precio']);
         $producto['subtotal'] = $producto['cantidad'] * $precioActual;
         $producto['precio_actual'] = $precioActual;
+        if (($producto['estado_producto'] ?? 'activo') !== 'activo') {
+            $hayProductosNoDisponibles = true;
+        }
         $total += $producto['subtotal'];
         $productos[] = $producto;
     }
@@ -65,13 +69,16 @@ include 'header.php';
                                 <td>
                                     <strong><?= htmlspecialchars($producto['nombre']) ?></strong><br>
                                     <small class="text-secondary">Marca <?= htmlspecialchars($producto['marca']) ?></small>
+                                    <?php if (($producto['estado_producto'] ?? 'activo') !== 'activo'): ?>
+                                        <br><span class="badge badge-inactivo mt-2">No disponible</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td>$ <?= number_format($producto['precio_actual'], 2, ',', '.') ?></td>
                                 <td>
                                     <div class="d-flex gap-1 align-items-center">
                                         <button class="btn btn-sm btn-outline-secondary btn-cantidad" data-id="<?= $producto['id_producto'] ?>" data-accion="menos"><i class="bi bi-dash-lg"></i></button>
                                         <span class="px-2 cantidad-valor" data-id="<?= $producto['id_producto'] ?>"><?= $producto['cantidad'] ?></span>
-                                        <button class="btn btn-sm btn-outline-secondary btn-cantidad" data-id="<?= $producto['id_producto'] ?>" data-accion="mas"><i class="bi bi-plus-lg"></i></button>
+                                        <button class="btn btn-sm btn-outline-secondary btn-cantidad" data-id="<?= $producto['id_producto'] ?>" data-accion="mas" <?= (($producto['estado_producto'] ?? 'activo') !== 'activo') ? 'disabled' : '' ?>><i class="bi bi-plus-lg"></i></button>
                                     </div>
                                 </td>
                                 <td class="subtotal-td" data-id="<?= $producto['id_producto'] ?>">$ <?= number_format($producto['subtotal'], 2, ',', '.') ?></td>
@@ -88,7 +95,11 @@ include 'header.php';
                 <div class="text-end">
                     <p class="mb-1">Total</p>
                     <h3 id="totalCarrito">$ <?= number_format($total, 2, ',', '.') ?></h3>
-                    <a href="finalizar_compra.php" class="btn btn-farmacia btn-lg mt-2"><i class="bi bi-credit-card-2-front-fill me-1"></i>Finalizar compra</a>
+                    <?php if ($hayProductosNoDisponibles): ?>
+                        <div class="alert alert-warning text-start mt-3">Quita los productos no disponibles para finalizar la compra.</div>
+                    <?php else: ?>
+                        <a href="finalizar_compra.php" class="btn btn-farmacia btn-lg mt-2"><i class="bi bi-credit-card-2-front-fill me-1"></i>Finalizar compra</a>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>

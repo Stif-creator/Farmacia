@@ -17,7 +17,15 @@ if ($nombre === '' || $descripcion === '' || $precio <= 0 || $stock < 0 || $idCa
     exit;
 }
 
-$queryMarca = $conexion->prepare('SELECT nombre_marca FROM marcas WHERE id_marca = ? LIMIT 1');
+$queryCategoria = $conexion->prepare("SELECT id_categoria FROM categorias WHERE id_categoria = ? AND estado = 'activo' LIMIT 1");
+$queryCategoria->bind_param('i', $idCategoria);
+$queryCategoria->execute();
+if (!$queryCategoria->get_result()->fetch_assoc()) {
+    header('Location: crear_producto.php');
+    exit;
+}
+
+$queryMarca = $conexion->prepare("SELECT nombre_marca FROM marcas WHERE id_marca = ? AND estado = 'activo' LIMIT 1");
 $queryMarca->bind_param('i', $idMarca);
 $queryMarca->execute();
 $resultMarca = $queryMarca->get_result();
@@ -28,7 +36,7 @@ if (!$marcaFila) {
 }
 $nombreMarca = $marcaFila['nombre_marca'];
 
-$queryProveedor = $conexion->prepare('SELECT nombre FROM proveedores WHERE id_proveedor = ? LIMIT 1');
+$queryProveedor = $conexion->prepare("SELECT nombre FROM proveedores WHERE id_proveedor = ? AND estado = 'activo' LIMIT 1");
 $queryProveedor->bind_param('i', $idProveedor);
 $queryProveedor->execute();
 $resultProveedor = $queryProveedor->get_result();
@@ -38,22 +46,17 @@ if (!$proveedorFila) {
     exit;
 }
 
-$imagenUrl = 'https://placehold.co/600x400/16a34a/ffffff?text=Producto+Farmacia';
-if (!empty($_FILES['imagen']['tmp_name'])) {
-    $rutaUploads = 'uploads/';
-    if (!is_dir($rutaUploads)) {
-        mkdir($rutaUploads, 0755, true);
-    }
-    $nombreArchivo = time() . '_' . basename($_FILES['imagen']['name']);
-    $destino = $rutaUploads . $nombreArchivo;
-    if (move_uploaded_file($_FILES['imagen']['tmp_name'], $destino)) {
-        $imagenUrl = $destino;
-    }
+$imagenesSubidas = subirImagenesProducto('imagenes');
+if (empty($imagenesSubidas)) {
+    $imagenesSubidas = subirImagenesProducto('imagen');
 }
+$imagenUrl = $imagenesSubidas[0] ?? 'https://placehold.co/600x400/16a34a/ffffff?text=Producto+Farmacia';
 
 $insert = $conexion->prepare('INSERT INTO productos (nombre, marca, descripcion, precio, stock, imagen, estado, id_categoria, id_marca, id_proveedor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
 $insert->bind_param('sssdissiii', $nombre, $nombreMarca, $descripcion, $precio, $stock, $imagenUrl, $estado, $idCategoria, $idMarca, $idProveedor);
 $insert->execute();
+$idProducto = $conexion->insert_id;
+registrarImagenesProducto($conexion, $idProducto, $imagenesSubidas);
 
 header('Location: index.php');
 exit;

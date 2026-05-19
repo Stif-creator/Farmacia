@@ -41,6 +41,7 @@ unset($_SESSION['contacto_exito'], $_SESSION['contacto_error']);
                         <option value="">Selecciona categoría</option>
                         <option value="Soporte">Soporte</option>
                         <option value="Sugerencia">Sugerencia</option>
+                        <option value="Queja">Queja</option>
                         <option value="Reporte">Reporte</option>
                         <option value="Consulta">Consulta</option>
                     </select>

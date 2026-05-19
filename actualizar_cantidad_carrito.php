@@ -27,13 +27,17 @@ if (!$carritoActivo) {
 }
 $idCarrito = $carritoActivo['id_carrito'];
 
-$queryProducto = $conexion->prepare('SELECT stock, precio FROM productos WHERE id_producto = ? LIMIT 1');
+$queryProducto = $conexion->prepare('SELECT stock, precio, estado FROM productos WHERE id_producto = ? LIMIT 1');
 $queryProducto->bind_param('i', $idProducto);
 $queryProducto->execute();
 $resultadoProducto = $queryProducto->get_result();
 $producto = $resultadoProducto->fetch_assoc();
 if (!$producto) {
     echo json_encode(['success' => false, 'message' => 'Producto no encontrado.']);
+    exit;
+}
+if ($accion === 'mas' && $producto['estado'] !== 'activo') {
+    echo json_encode(['success' => false, 'message' => 'Producto no disponible.']);
     exit;
 }
 

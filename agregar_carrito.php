@@ -18,13 +18,13 @@ else if (!empty($input['qty'])) $cantidadSolicitada = max(1, intval($input['qty'
 
 $idUsuario = $_SESSION['id_usuario'];
 if ($idProducto > 0) {
-    $query = $conexion->prepare('SELECT stock, precio FROM productos WHERE id_producto = ? LIMIT 1');
+    $query = $conexion->prepare('SELECT stock, precio, estado FROM productos WHERE id_producto = ? LIMIT 1');
     $query->bind_param('i', $idProducto);
     $query->execute();
     $resultado = $query->get_result();
     $producto = $resultado->fetch_assoc();
 
-    if ($producto && $producto['stock'] > 0) {
+    if ($producto && $producto['estado'] === 'activo' && $producto['stock'] > 0) {
         $estadoActivo = 'activo';
         $consultaCarrito = $conexion->prepare('SELECT id_carrito FROM carrito WHERE id_usuario = ? AND estado = ? LIMIT 1');
         $consultaCarrito->bind_param('is', $idUsuario, $estadoActivo);

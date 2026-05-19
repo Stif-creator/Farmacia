@@ -4,6 +4,7 @@ require_once 'conexion.php';
 require_once 'enviar_correo.php';
 
 $errores = [];
+$mensajeLoginRequerido = isset($_GET['login_required']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $correo = trim($_POST['correo'] ?? '');
     $contrasena = $_POST['contrasena'] ?? '';
@@ -84,6 +85,9 @@ include 'header.php';
                         </div>
                     <?php endif; ?>
                 </div>
+            <?php endif; ?>
+            <?php if ($mensajeLoginRequerido): ?>
+                <div class="alert alert-warning alert-message">Debes iniciar sesión para comprar productos.</div>
             <?php endif; ?>
             <form method="post" action="login.php" novalidate>
                 <div class="mb-3 input-icon">

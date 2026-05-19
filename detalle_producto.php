@@ -23,6 +23,40 @@ if (!$producto) {
     exit;
 }
 
+$esAdmin = isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin';
+if (($producto['estado'] ?? 'activo') !== 'activo' && !$esAdmin) {
+    include 'header.php';
+    ?>
+    <div class="row justify-content-center mb-5">
+        <div class="col-lg-8">
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-circle me-2"></i>Producto no disponible.
+            </div>
+            <a href="index.php" class="btn btn-outline-secondary">Volver al catalogo</a>
+        </div>
+    </div>
+    <?php
+    include 'footer.php';
+    exit;
+}
+
+$imagenesProducto = [];
+if (!empty($producto['imagen'])) {
+    $imagenesProducto[] = $producto['imagen'];
+}
+$imagenesQuery = $conexion->prepare('SELECT ruta FROM producto_imagenes WHERE id_producto = ? ORDER BY orden ASC, id_imagen ASC');
+$imagenesQuery->bind_param('i', $id);
+$imagenesQuery->execute();
+$imagenesResultado = $imagenesQuery->get_result();
+while ($imagenFila = $imagenesResultado->fetch_assoc()) {
+    if (!in_array($imagenFila['ruta'], $imagenesProducto, true)) {
+        $imagenesProducto[] = $imagenFila['ruta'];
+    }
+}
+if (empty($imagenesProducto)) {
+    $imagenesProducto[] = 'https://placehold.co/600x400/16a34a/ffffff?text=Producto+Farmacia';
+}
+
 include 'header.php';
 ?>
 <div class="row justify-content-center mb-5">
@@ -30,7 +64,27 @@ include 'header.php';
         <div class="card card-producto overflow-hidden">
             <div class="row g-0">
                 <div class="col-md-6">
-                    <img src="<?= htmlspecialchars($producto['imagen'] ?: 'https://placehold.co/600x400/16a34a/ffffff?text=Producto+Farmacia') ?>" alt="<?= htmlspecialchars($producto['nombre']) ?>" class="img-fluid w-100 h-100">
+                    <?php if (count($imagenesProducto) > 1): ?>
+                        <div id="productoImagenesCarousel" class="carousel slide h-100" data-bs-ride="carousel">
+                            <div class="carousel-inner h-100">
+                                <?php foreach ($imagenesProducto as $index => $imagenProducto): ?>
+                                    <div class="carousel-item h-100 <?= $index === 0 ? 'active' : '' ?>">
+                                        <img src="<?= htmlspecialchars($imagenProducto) ?>" alt="<?= htmlspecialchars($producto['nombre']) ?>" class="img-fluid w-100 producto-gallery-img">
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <button class="carousel-control-prev" type="button" data-bs-target="#productoImagenesCarousel" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Anterior</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#productoImagenesCarousel" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Siguiente</span>
+                            </button>
+                        </div>
+                    <?php else: ?>
+                        <img src="<?= htmlspecialchars($imagenesProducto[0]) ?>" alt="<?= htmlspecialchars($producto['nombre']) ?>" class="img-fluid w-100 producto-gallery-img">
+                    <?php endif; ?>
                 </div>
                 <div class="col-md-6">
                     <div class="card-body p-4">
@@ -54,10 +108,14 @@ include 'header.php';
                                 <button id="btnAgregar" data-id="<?= $producto['id_producto'] ?>" class="btn btn-farmacia btn-lg">Agregar al carrito</button>
                                 <a href="agregar_favorito.php?id=<?= $producto['id_producto'] ?>" class="btn btn-outline-farmacia btn-lg">Agregar a favoritos</a>
                             <?php endif; ?>
-                            <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin'): ?>
+                            <?php if ($esAdmin): ?>
                                 <div class="d-flex gap-2">
                                     <a href="editar_producto.php?id=<?= $producto['id_producto'] ?>" class="btn btn-secondary">Editar</a>
-                                    <a href="eliminar_producto.php?id=<?= $producto['id_producto'] ?>" class="btn btn-danger" onclick="return confirm('Deseas eliminar este producto?');">Eliminar</a>
+                                    <?php if ($producto['estado'] === 'activo'): ?>
+                                        <a href="eliminar_producto.php?id=<?= $producto['id_producto'] ?>" class="btn btn-danger" onclick="return confirm('Desactivar este producto?');">Desactivar</a>
+                                    <?php else: ?>
+                                        <a href="activar_producto.php?id=<?= $producto['id_producto'] ?>" class="btn btn-success">Activar</a>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                             <a href="index.php" class="btn btn-outline-secondary">Volver al catálogo</a>

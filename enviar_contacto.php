@@ -19,7 +19,6 @@ if ($asunto === '' || $categoria === '' || $mensaje === '') {
 
 $nombreUsuario = $_SESSION['usuario'] ?? 'Usuario';
 $correoUsuario = $_SESSION['correo'] ?? '';
-$destino = 'admin@farmacia.com';
 
 $mail = new PHPMailer(true);
 try {
@@ -33,7 +32,7 @@ try {
     $mail->CharSet = 'UTF-8';
 
     $mail->setFrom(SMTP_USER, SMTP_FROM_NAME);
-    $mail->addAddress($destino, 'Soporte Farmacia');
+    $mail->addAddress(SMTP_USER, 'Soporte Farmacia');
     $mail->Subject = 'Nuevo contacto - ' . $categoria . ': ' . $asunto;
     $mail->isHTML(true);
     $mail->Body = '<div style="font-family:Arial, sans-serif; color:#1f3d2e; padding:20px; background:#f3faf8; border-radius:18px;">

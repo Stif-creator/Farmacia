@@ -42,6 +42,7 @@ if (session_status() === PHP_SESSION_NONE) {
                     <?php endif; ?>
                 </ul>
                 <div class="d-flex align-items-center gap-2">
+                    <button id="darkModeToggle" class="btn btn-outline-light btn-sm" type="button" aria-label="Cambiar tema"><i class="bi bi-moon-stars-fill"></i></button>
                     <?php if (isset($_SESSION['id_usuario'])): ?>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge bg-white text-dark rounded-pill px-3 py-2"> <i class="bi bi-person-circle me-2"></i><?= htmlspecialchars($_SESSION['usuario'] ?? 'Usuario') ?></span>

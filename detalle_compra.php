@@ -2,6 +2,8 @@
 require_once 'auth.php';
 require_once 'conexion.php';
 
+actualizarEstadosVentas($conexion);
+
 $idVenta = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $idUsuario = $_SESSION['id_usuario'] ?? 0;
 
@@ -20,6 +22,11 @@ if (!$venta) {
     header('Location: mis_compras.php');
     exit;
 }
+
+$estadoVenta = normalizarEstadoVenta($venta['estado_venta']);
+$fechaTimestamp = strtotime($venta['fecha']);
+$expiraEn = $fechaTimestamp ? ($fechaTimestamp + 30) * 1000 : 0;
+$pendienteVigente = $estadoVenta === 'pendiente' && $fechaTimestamp && (($fechaTimestamp + 30) > time());
 
 $detalle = $conexion->prepare('SELECT dv.cantidad, dv.precio_unitario, p.nombre, p.marca FROM detalle_venta dv JOIN productos p ON dv.id_producto = p.id_producto WHERE dv.id_venta = ?');
 $detalle->bind_param('i', $idVenta);
@@ -43,7 +50,7 @@ include 'header.php';
                     <p><strong>Total:</strong> $ <?= number_format($venta['total'], 2, ',', '.') ?></p>
                 </div>
                 <div class="col-md-4">
-                    <p><strong>Estado:</strong> <?= htmlspecialchars($venta['estado_venta']) ?></p>
+                    <p><strong>Estado:</strong> <span class="badge <?= obtenerClaseEstadoVenta($estadoVenta) ?>"><?= mostrarTextoEstadoVenta($estadoVenta) ?></span></p>
                 </div>
             </div>
         </div>
@@ -74,4 +81,14 @@ include 'header.php';
         <a href="mis_compras.php" class="btn btn-outline-secondary">Volver a mis compras</a>
     </div>
 </div>
+<?php if ($pendienteVigente): ?>
+<script>
+    (function () {
+        var expiresAt = <?= $expiraEn ?>;
+        setTimeout(function () {
+            window.location.reload();
+        }, Math.max(1000, expiresAt - Date.now() + 300));
+    })();
+</script>
+<?php endif; ?>
 <?php include 'footer.php';

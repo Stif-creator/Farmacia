@@ -3,9 +3,9 @@ require_once 'auth.php';
 soloAdmin();
 require_once 'conexion.php';
 
-$categorias = $conexion->query('SELECT * FROM categorias ORDER BY nombre_categoria ASC')->fetch_all(MYSQLI_ASSOC);
-$marcas = $conexion->query('SELECT * FROM marcas ORDER BY nombre_marca ASC')->fetch_all(MYSQLI_ASSOC);
-$proveedores = $conexion->query('SELECT * FROM proveedores ORDER BY nombre ASC')->fetch_all(MYSQLI_ASSOC);
+$categorias = $conexion->query("SELECT * FROM categorias WHERE estado = 'activo' ORDER BY nombre_categoria ASC")->fetch_all(MYSQLI_ASSOC);
+$marcas = $conexion->query("SELECT * FROM marcas WHERE estado = 'activo' ORDER BY nombre_marca ASC")->fetch_all(MYSQLI_ASSOC);
+$proveedores = $conexion->query("SELECT * FROM proveedores WHERE estado = 'activo' ORDER BY nombre ASC")->fetch_all(MYSQLI_ASSOC);
 include 'header.php';
 ?>
 <div class="row justify-content-center">
@@ -73,10 +73,10 @@ include 'header.php';
                         <textarea name="descripcion" class="form-control" rows="5" placeholder="Descripción breve" required></textarea>
                     </div>
                     <div class="col-12 input-icon">
-                        <label class="form-label visually-hidden">Imagen</label>
+                        <label class="form-label visually-hidden">Imagenes</label>
                         <i class="bi bi-image"></i>
-                        <input type="file" name="imagen" class="form-control">
-                        <div class="form-text">Si no subes imagen se usará un placeholder.</div>
+                        <input type="file" name="imagenes[]" class="form-control" accept="image/*" multiple>
+                        <div class="form-text">Puedes seleccionar varias imagenes. La primera sera la portada del producto.</div>
                     </div>
                 </div>
                 <div class="mt-4 d-flex gap-2">

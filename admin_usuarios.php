@@ -63,6 +63,9 @@ include 'header.php';
         <?php if (isset($_GET['error'])): ?>
             <div class="alert alert-danger alert-message"><?= htmlspecialchars($_GET['error']) ?></div>
         <?php endif; ?>
+        <div class="mb-3">
+            <input id="usuariosSearch" data-search-table=".table-responsive table" type="text" class="form-control" placeholder="Buscar usuarios por nombre o correo">
+        </div>
         <div class="table-responsive">
             <table class="table align-middle">
                 <thead>

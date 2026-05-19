@@ -26,9 +26,8 @@ if ($correo === '' || !filter_var($correo, FILTER_VALIDATE_EMAIL) || $mensaje ==
     redirect('solicitar_desbloqueo.php');
 }
 
-// Enviar correo al administrador principal
-$destino = defined('HARDCODED_ADMIN_EMAIL') ? HARDCODED_ADMIN_EMAIL : (SMTP_USER ?? null);
-if (!$destino) {
+// Enviar correo al buzón SMTP principal del sistema
+if (!SMTP_USER) {
     $_SESSION['desbloqueo_error'] = 'No hay administrador configurado para recibir solicitudes.';
     redirect('solicitar_desbloqueo.php');
 }
@@ -44,7 +43,7 @@ try {
     $mail->Port = SMTP_PORT;
     $mail->CharSet = 'UTF-8';
     $mail->setFrom(SMTP_USER, SMTP_FROM_NAME);
-    $mail->addAddress($destino, 'Administrador');
+    $mail->addAddress(SMTP_USER, 'Administrador');
     $mail->addReplyTo($correo);
     $mail->isHTML(true);
     $mail->Subject = $asunto;
