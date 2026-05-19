@@ -18,7 +18,7 @@ if (!$carritoActivo) {
 
 $idCarrito = $carritoActivo['id_carrito'];
 $consulta = $conexion->prepare(
-    'SELECT dc.id_producto, dc.cantidad, dc.precio_unitario, p.stock FROM detalle_carrito dc '
+    'SELECT dc.id_producto, dc.cantidad, p.precio AS precio_actual, p.stock FROM detalle_carrito dc '
     . 'JOIN productos p ON dc.id_producto = p.id_producto '
     . 'WHERE dc.id_carrito = ? FOR UPDATE'
 );
@@ -36,7 +36,9 @@ while ($producto = $resultado->fetch_assoc()) {
         header('Location: carrito.php');
         exit;
     }
-    $producto['subtotal'] = $cantidad * floatval($producto['precio_unitario']);
+    $precioUnitario = floatval($producto['precio_actual']);
+    $producto['subtotal'] = $cantidad * $precioUnitario;
+    $producto['precio_unitario'] = $precioUnitario;
     $total += $producto['subtotal'];
     $productos[] = $producto;
 }

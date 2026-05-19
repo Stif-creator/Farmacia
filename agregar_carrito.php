@@ -3,7 +3,19 @@ require_once 'auth.php';
 soloCliente();
 require_once 'conexion.php';
 
-$idProducto = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$idProducto = 0;
+$input = null;
+// aceptar id por GET o JSON POST
+if (isset($_GET['id'])) $idProducto = intval($_GET['id']);
+else {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (isset($input['id'])) $idProducto = intval($input['id']);
+}
+// cantidad opcional
+$cantidadSolicitada = 1;
+if (isset($_GET['qty'])) $cantidadSolicitada = max(1, intval($_GET['qty']));
+else if (!empty($input['qty'])) $cantidadSolicitada = max(1, intval($input['qty']));
+
 $idUsuario = $_SESSION['id_usuario'];
 if ($idProducto > 0) {
     $query = $conexion->prepare('SELECT stock, precio FROM productos WHERE id_producto = ? LIMIT 1');
@@ -36,15 +48,15 @@ if ($idProducto > 0) {
         $detalle = $resultadoDetalle->fetch_assoc();
 
         $cantidadActual = intval($detalle['cantidad'] ?? 0);
-        $cantidadNueva = min($cantidadActual + 1, intval($producto['stock']));
+        $cantidadNueva = min($cantidadActual + $cantidadSolicitada, intval($producto['stock']));
 
         if ($detalle) {
-            $updateDetalle = $conexion->prepare('UPDATE detalle_carrito SET cantidad = ?, precio_unitario = ? WHERE id_carrito = ? AND id_producto = ?');
-            $updateDetalle->bind_param('idii', $cantidadNueva, $producto['precio'], $idCarrito, $idProducto);
+            $updateDetalle = $conexion->prepare('UPDATE detalle_carrito SET cantidad = ? WHERE id_carrito = ? AND id_producto = ?');
+            $updateDetalle->bind_param('iii', $cantidadNueva, $idCarrito, $idProducto);
             $updateDetalle->execute();
         } else {
-            $insertDetalle = $conexion->prepare('INSERT INTO detalle_carrito (id_carrito, id_producto, cantidad, precio_unitario) VALUES (?, ?, ?, ?)');
-            $insertDetalle->bind_param('iiid', $idCarrito, $idProducto, $cantidadNueva, $producto['precio']);
+            $insertDetalle = $conexion->prepare('INSERT INTO detalle_carrito (id_carrito, id_producto, cantidad) VALUES (?, ?, ?)');
+            $insertDetalle->bind_param('iii', $idCarrito, $idProducto, $cantidadNueva);
             $insertDetalle->execute();
         }
 

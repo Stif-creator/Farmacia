@@ -34,8 +34,8 @@ if ($idProducto > 0 && in_array($accion, ['mas', 'menos'], true)) {
             if ($detalle) {
                 if ($accion === 'mas' && $cantidad < intval($producto['stock'])) {
                     $cantidad++;
-                    $update = $conexion->prepare('UPDATE detalle_carrito SET cantidad = ?, precio_unitario = ? WHERE id_carrito = ? AND id_producto = ?');
-                    $update->bind_param('idii', $cantidad, $producto['precio'], $idCarrito, $idProducto);
+                    $update = $conexion->prepare('UPDATE detalle_carrito SET cantidad = ? WHERE id_carrito = ? AND id_producto = ?');
+                    $update->bind_param('iii', $cantidad, $idCarrito, $idProducto);
                     $update->execute();
                 } elseif ($accion === 'menos') {
                     if ($cantidad > 1) {

@@ -17,7 +17,7 @@ $carritoActivo = $resultadoCarrito->fetch_assoc();
 if ($carritoActivo) {
     $idCarrito = $carritoActivo['id_carrito'];
     $consulta = $conexion->prepare(
-        'SELECT dc.id_producto, dc.cantidad, dc.precio_unitario, p.nombre, p.marca, p.imagen, p.precio AS precio_actual, p.stock, c.nombre_categoria, m.nombre_marca AS nombre_marca, pr.nombre AS nombre_proveedor '
+        'SELECT dc.id_producto, dc.cantidad, p.nombre, p.marca, p.imagen, p.precio AS precio_actual, p.stock, c.nombre_categoria, m.nombre_marca AS nombre_marca, pr.nombre AS nombre_proveedor '
         . 'FROM detalle_carrito dc '
         . 'JOIN productos p ON dc.id_producto = p.id_producto '
         . 'LEFT JOIN categorias c ON p.id_categoria = c.id_categoria '
@@ -30,7 +30,9 @@ if ($carritoActivo) {
     $resultado = $consulta->get_result();
     while ($producto = $resultado->fetch_assoc()) {
         $producto['cantidad'] = intval($producto['cantidad']);
-        $producto['subtotal'] = $producto['cantidad'] * floatval($producto['precio_unitario']);
+        $precioActual = floatval($producto['precio_actual'] ?? $producto['precio']);
+        $producto['subtotal'] = $producto['cantidad'] * $precioActual;
+        $producto['precio_actual'] = $precioActual;
         $total += $producto['subtotal'];
         $productos[] = $producto;
     }
@@ -64,15 +66,15 @@ include 'header.php';
                                     <strong><?= htmlspecialchars($producto['nombre']) ?></strong><br>
                                     <small class="text-secondary">Marca <?= htmlspecialchars($producto['marca']) ?></small>
                                 </td>
-                                <td>$ <?= number_format($producto['precio'], 2, ',', '.') ?></td>
+                                <td>$ <?= number_format($producto['precio_actual'], 2, ',', '.') ?></td>
                                 <td>
                                     <div class="d-flex gap-1 align-items-center">
-                                        <a href="actualizar_carrito.php?id=<?= $producto['id_producto'] ?>&accion=menos" class="btn btn-sm btn-outline-secondary"><i class="bi bi-dash-lg"></i></a>
-                                        <span class="px-2"><?= $producto['cantidad'] ?></span>
-                                        <a href="actualizar_carrito.php?id=<?= $producto['id_producto'] ?>&accion=mas" class="btn btn-sm btn-outline-secondary"><i class="bi bi-plus-lg"></i></a>
+                                        <button class="btn btn-sm btn-outline-secondary btn-cantidad" data-id="<?= $producto['id_producto'] ?>" data-accion="menos"><i class="bi bi-dash-lg"></i></button>
+                                        <span class="px-2 cantidad-valor" data-id="<?= $producto['id_producto'] ?>"><?= $producto['cantidad'] ?></span>
+                                        <button class="btn btn-sm btn-outline-secondary btn-cantidad" data-id="<?= $producto['id_producto'] ?>" data-accion="mas"><i class="bi bi-plus-lg"></i></button>
                                     </div>
                                 </td>
-                                <td>$ <?= number_format($producto['subtotal'], 2, ',', '.') ?></td>
+                                <td class="subtotal-td" data-id="<?= $producto['id_producto'] ?>">$ <?= number_format($producto['subtotal'], 2, ',', '.') ?></td>
                                 <td><a href="quitar_carrito.php?id=<?= $producto['id_producto'] ?>" class="btn btn-sm btn-danger"><i class="bi bi-trash"></i> Quitar</a></td>
                             </tr>
                         <?php endforeach; ?>
@@ -85,11 +87,43 @@ include 'header.php';
                 </div>
                 <div class="text-end">
                     <p class="mb-1">Total</p>
-                    <h3>$ <?= number_format($total, 2, ',', '.') ?></h3>
+                    <h3 id="totalCarrito">$ <?= number_format($total, 2, ',', '.') ?></h3>
                     <a href="finalizar_compra.php" class="btn btn-farmacia btn-lg mt-2"><i class="bi bi-credit-card-2-front-fill me-1"></i>Finalizar compra</a>
                 </div>
             </div>
         <?php endif; ?>
     </div>
 </div>
+<script>
+    async function actualizarCantidad(id, accion) {
+        try {
+            const resp = await fetch('actualizar_cantidad_carrito.php', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({id: id, accion: accion})
+            });
+            const datos = await resp.json();
+            if (!datos.success) {
+                alert(datos.message || 'Error al actualizar');
+                return;
+            }
+            const cantidadEl = document.querySelector('.cantidad-valor[data-id="'+id+'"]');
+            const subtotalEl = document.querySelector('.subtotal-td[data-id="'+id+'"]');
+            if (cantidadEl) cantidadEl.textContent = datos.cantidad;
+            if (subtotalEl) subtotalEl.textContent = '$ ' + parseFloat(datos.subtotal).toFixed(2).replace('.', ',');
+            const totalEl = document.querySelector('#totalCarrito');
+            if (totalEl) totalEl.textContent = '$ ' + parseFloat(datos.total).toFixed(2).replace('.', ',');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    document.querySelectorAll('.btn-cantidad').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = btn.dataset.id;
+            const accion = btn.dataset.accion;
+            actualizarCantidad(id, accion);
+        });
+    });
+</script>
 <?php include 'footer.php';

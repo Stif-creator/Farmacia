@@ -43,10 +43,15 @@ include 'header.php';
                         <?php endif; ?>
                         <p class="mb-3"><?= nl2br(htmlspecialchars($producto['descripcion'])) ?></p>
                         <h3 class="fw-bold mb-4">$ <?= number_format($producto['precio'], 2, ',', '.') ?></h3>
-                        <p class="mb-4">Stock disponible: <strong><?= intval($producto['stock']) ?></strong></p>
+                        <p class="mb-4">Stock disponible: <strong id="stockDisponible"><?= intval($producto['stock']) ?></strong></p>
                         <div class="d-flex flex-column gap-2">
                             <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'cliente'): ?>
-                                <a href="agregar_carrito.php?id=<?= $producto['id_producto'] ?>" class="btn btn-farmacia btn-lg">Agregar al carrito</a>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button id="btnMinus" class="btn btn-outline-secondary btn-sm"><i class="bi bi-dash-lg"></i></button>
+                                    <input id="cantidadSelector" type="number" min="1" value="1" class="form-control text-center" style="width:80px;" />
+                                    <button id="btnPlus" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i></button>
+                                </div>
+                                <button id="btnAgregar" data-id="<?= $producto['id_producto'] ?>" class="btn btn-farmacia btn-lg">Agregar al carrito</button>
                                 <a href="agregar_favorito.php?id=<?= $producto['id_producto'] ?>" class="btn btn-outline-farmacia btn-lg">Agregar a favoritos</a>
                             <?php endif; ?>
                             <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'admin'): ?>
@@ -63,4 +68,58 @@ include 'header.php';
         </div>
     </div>
 </div>
-<?php include 'footer.php';
+<?php include 'footer.php'; ?>
+
+<script>
+    (function(){
+        const stockEl = document.getElementById('stockDisponible');
+        const btnMinus = document.getElementById('btnMinus');
+        const btnPlus = document.getElementById('btnPlus');
+        const inputQty = document.getElementById('cantidadSelector');
+        const btnAgregar = document.getElementById('btnAgregar');
+        const maxStock = stockEl ? parseInt(stockEl.textContent) : 1;
+        if (btnMinus && inputQty) {
+            btnMinus.addEventListener('click', ()=>{
+                const v = Math.max(1, parseInt(inputQty.value || 1) - 1);
+                inputQty.value = v;
+            });
+        }
+        if (btnPlus && inputQty) {
+            btnPlus.addEventListener('click', ()=>{
+                const v = Math.min(maxStock, parseInt(inputQty.value || 1) + 1);
+                inputQty.value = v;
+            });
+        }
+        if (btnAgregar) {
+            btnAgregar.addEventListener('click', async ()=>{
+                const id = btnAgregar.dataset.id;
+                const qty = Math.max(1, Math.min(maxStock, parseInt(inputQty.value || 1)));
+                try{
+                    const resp = await fetch('agregar_carrito.php', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({id: id, qty: qty})
+                    });
+                    // soportar redirección si el endpoint devuelve HTML
+                    if (resp.redirected) {
+                        window.location = resp.url;
+                        return;
+                    }
+                    // si éxito, mostrar pequeño toast y actualizar contador si existe
+                    // simple feedback
+                    if (resp.ok) {
+                        const container = document.createElement('div');
+                        container.className = 'toast align-items-center text-bg-success border-0 show';
+                        container.style.position = 'fixed';
+                        container.style.right = '20px';
+                        container.style.bottom = '20px';
+                        container.style.zIndex = 9999;
+                        container.innerHTML = '<div class="d-flex"><div class="toast-body">Producto agregado al carrito</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentNode.parentNode.remove()"></button></div>';
+                        document.body.appendChild(container);
+                        setTimeout(()=>container.remove(), 3000);
+                    }
+                }catch(e){console.error(e);}
+            });
+        }
+    })();
+</script>

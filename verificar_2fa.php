@@ -2,7 +2,7 @@
 require_once 'auth.php';
 require_once 'conexion.php';
 
-if (!isset($_SESSION['pendiente_2fa']) || $_SESSION['rol_pendiente'] === 'admin') {
+if (!isset($_SESSION['pendiente_2fa'])) {
     header('Location: login.php');
     exit;
 }

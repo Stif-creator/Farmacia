@@ -13,26 +13,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
         $errores[] = 'Ingrese un correo electrónico válido.';
     } else {
-        $esAdminHardcodeado = $correo === 'admin@farmacia.com' && $contrasena === 'Admin123';
-
+        $esAdminHardcodeado = esAdminHardcodeado($correo);
         if ($esAdminHardcodeado) {
-            // Admin hardcodeado entra directo sin 2FA
-            $_SESSION['id_usuario'] = 0;
-            $_SESSION['usuario'] = 'Administrador';
-            $_SESSION['correo'] = 'admin@farmacia.com';
-            $_SESSION['rol'] = 'admin';
-            header('Location: dashboard_admin.php');
-            exit;
+            if (password_verify($contrasena, obtenerPasswordAdminHardcodeado())) {
+                $_SESSION['id_usuario'] = 'hardcoded_admin';
+                $_SESSION['usuario'] = obtenerNombreAdminHardcodeado();
+                $_SESSION['correo'] = HARDCODED_ADMIN_EMAIL;
+                $_SESSION['rol'] = 'admin';
+                header('Location: dashboard_admin.php');
+                exit;
+            }
+            $errores[] = 'Credenciales incorrectas.';
         } else {
-            // Para clientes normales, buscar en base de datos y enviar 2FA
-            $query = $conexion->prepare('SELECT id_usuario, nombre, correo, contrasena, rol FROM usuarios WHERE correo = ? LIMIT 1');
+            // Buscar en base de datos y enviar 2FA
+            $query = $conexion->prepare('SELECT id_usuario, nombre, correo, contrasena, rol, estado FROM usuarios WHERE correo = ? LIMIT 1');
             $query->bind_param('s', $correo);
             $query->execute();
             $resultado = $query->get_result();
             $usuario = $resultado->fetch_assoc();
 
-            if ($usuario && password_verify($contrasena, $usuario['contrasena'])) {
-                // Generar código 2FA y guardarlo en sesión exactamente como string
+            if ($usuario && $usuario['estado'] === 'bloqueado') {
+                $mensajeBloqueado = true;
+                $errores[] = 'Tu cuenta ha sido bloqueada.';
+            } elseif ($usuario && password_verify($contrasena, $usuario['contrasena'])) {
                 $codigo = strval(rand(100000, 999999));
 
                 $_SESSION['pendiente_2fa'] = true;
@@ -75,6 +78,11 @@ include 'header.php';
                     <?php foreach ($errores as $error): ?>
                         <div><?= htmlspecialchars($error) ?></div>
                     <?php endforeach; ?>
+                    <?php if (!empty($mensajeBloqueado)): ?>
+                        <div class="mt-2"> 
+                            <a href="solicitar_desbloqueo.php" class="link-primary" style="text-decoration:underline; color:#3da9ff;">Solicitar desbloqueo</a>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             <form method="post" action="login.php" novalidate>
